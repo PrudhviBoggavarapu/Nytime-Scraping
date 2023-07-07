@@ -26,7 +26,7 @@ get_full_text_queue = queue.Queue()
 
 
 def testing_stuff(page_queue, exit_event):
-    data = open("file.html", "r").read()
+    data = open("testing_html/filehtml", "r").read()
     page_queue.put(data)
     sleep(1000)
     exit_event.set()
