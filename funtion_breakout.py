@@ -223,3 +223,30 @@ def handle_raw_html(exit_event: threading.Event ,page_queue: queue.Queue,databas
     print('All Done Html Testing')
     
 
+
+def WritingDataBase(
+    die_event: threading.Event, writing_class_queue: queue.Queue, database_location: str
+):
+    if os.path.isfile(database_location):
+        testing_dataframe = pl.read_csv(database_location, separator='|')
+    else:
+        testing_dataframe = pl.DataFrame(schema=Article.parse_schema())
+
+
+    while not die_event.is_set():
+        try:
+            raw_element: Article = writing_class_queue.get_nowait()
+
+            if raw_element.hash in testing_dataframe.get_column('hash'):
+                pass
+            else:
+                data_frame_element = raw_element.to_dataframe()
+                testing_dataframe.extend(data_frame_element)
+                print(testing_dataframe[-1][0])
+        except queue.Empty:
+            pass
+    print('writiing data')
+    testing_dataframe.write_csv(database_location, separator="|")
+    print("all Done")
+
+
