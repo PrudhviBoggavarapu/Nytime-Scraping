@@ -1,6 +1,6 @@
 # Readme
 
-This project includes code for web scraping articles from The New York Times website and storing them in a database. The code is written in Python and utilizes various libraries and tools such as BeautifulSoup, Selenium, polars, and pandas.
+This project includes code for web scraping articles from The New York Times website and storing them in a database. The code is written in Python and utilises various libraries and tools such as BeautifulSoup, Selenium, polars.
 
 ## Prerequisites
 
@@ -9,8 +9,8 @@ Before running the code, ensure that you have the following prerequisites instal
 - Python 3.x
 - BeautifulSoup: `pip install beautifulsoup4`
 - Selenium: `pip install selenium`
-- polars: `pip install polars`
-- pandas: `pip install pandas`
+- Polars: `pip install polars`
+- Pandas: `pip install pandas`
 - GeckoDriver: `pip install webdriver_manager` (for Firefox)
 
 ## Code Overview
@@ -43,15 +43,15 @@ To use this code, follow these steps:
 
 5. The code will scrape articles from The New York Times website, extract the full text, and store them in the specified database.
 
-6. You can customize the code further to suit your specific needs, such as adding error handling, logging, or additional data processing.
+6. You can customise the code further to suit your specific needs, such as adding error handling, logging, or additional data processing.
 
 ## Notes
 
 - The code is provided as a starting point and may require modifications or enhancements based on your specific requirements.
-- Make sure to respect the website's terms of service and avoid excessive scraping that may cause harm or violate any policies.
+- Respect the website's terms of service and avoid excessive scraping that may cause harm or violate any policies.
 - Always be mindful of web scraping ethics and legal considerations.
 - Ensure you have the necessary permissions and rights to store and use the scraped data.
 
 ## Acknowledgements
 
-This project utilizes various open-source libraries and tools. We acknowledge their creators and contributors for their valuable contributions to the development community.
+This project utilises various open-source libraries and tools. We acknowledge their creators and contributors for their valuable contributions to the development community.
