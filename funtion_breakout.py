@@ -1,10 +1,9 @@
-import polars as pl
-from time import sleep
 from bs4 import BeautifulSoup
 
 import glob
 import queue
 import threading
+import hashlib
 import os
 import polars as pl
 import pandas as pd
@@ -24,23 +23,39 @@ from webdriver_manager.firefox import GeckoDriverManager
 
 
 class Article:
-    def __init__(self, title, author, link, timestamp, alt_text):
+    def __init__(self, title, author, link, timestamp, alt_text, full_text):
         self.title = title
         self.author = author
         self.link = link
         self.timestamp = timestamp
         self.alt_text = alt_text
+        self.full_text = full_text
+        self.hash = ''
+    
+
+    def calcuate_hash(self):
+        hash = hashlib.md5(self.link.encode())
+        self.hash = hash
+        return self
 
     def to_dataframe(self):
+
         data = {
             "title": [self.title],
             "author": [self.author],
             "link": [self.link],
             "timestamp": [self.timestamp],
-            "alt_text": [self.alt_text]
-        }
+            "alt_text": [self.alt_text],
+            "full_text": [self.full_text],
+            "hash": [self.hash]
+            }
+
+
         schema = self.parse_schema()
-        return pl.DataFrame(data, schema=schema)
+
+        nonCleanTime = pl.DataFrame(data, schema=schema)
+
+        return nonCleanTime
 
     @staticmethod
     def parse_schema():
@@ -48,13 +63,15 @@ class Article:
             "title": str,
             "author": str,
             "link": str,
-            "timestamp": pl.Int64,
-            "alt_text": str
+            "timestamp": str,
+            "alt_text": str,
+            "full_text": str,
+            "hash": str
         }
 
-        return
+        return schema
     @staticmethod
-    def parse_article(li_object):
+    def parse_article(li_object) -> 'Article':
         article_element = li_object
         if not article_element:
             return None
@@ -73,15 +90,18 @@ class Article:
             image_element["alt"] if image_element and "alt" in image_element.attrs else None
         )
 
-        timestamp = None
+        timestamp = 0
         if date:
             try:
                 timestamp = int(datetime.strptime(date, "%B %d, %Y").timestamp())
             except ValueError:
                 timestamp = 0
+        hashless = Article(title, author, link, int(timestamp), alt_text, full_text='')
 
-        return Article(title, author, link, timestamp, alt_text)
 
+        hashed = hashless.calcuate_hash()
+
+        return hashed
 
 
 
@@ -111,9 +131,11 @@ def click_element(driver, selector, method=By.CSS_SELECTOR):
     element = find_element(driver, selector, method)
     element.click()
 
-def start_driver():
+def start_driver(headless=False):
     options = Options()
-    # options.set_preference("javascript.enabled", False)
+    if headless:
+        options.set_preference("javascript.enabled", True)
+
     folder_path = "extentions/"
     xpi_files = glob.glob(folder_path + "*.xpi")
     driver = webdriver.Firefox(options=options)
@@ -149,27 +171,37 @@ def create_database():
             "author": "",
             "link": "",
             "timestamp": None,
-            "alt_text": ""
+            "alt_text": "",
+            "full_text": ""
         }
-        schema = {
-                    "title": str,
-                    "author": str,
-                    "link": str,
-                    "timestamp": pl.Int64,
-                    "alt_text": str
-                }
+        schema = Article.parse_schema()
         empty_artical = pl.DataFrame(data)
         empty_artical.write_csv(csv_file)
-        
-        
-        
+
+def Links_To_Full_Text_Data(exit_event: threading.Event, empty_artical_queue: queue.Queue, full_artcal_queue: queue.Queue):
+
+    headless_driver = start_driver()
+    while not exit_event.is_set():
+        artical = empty_artical_queue.get() # type: Article
+        if "#" in artical.link:
+            pass
+        else:
+            headless_driver.get(artical.link)
+            soup = BeautifulSoup(headless_driver.page_source, 'html.parser')
+            text = ' '.join([x.text for x in soup.find_all('p')])
+            artical.full_text = text
+            full_artcal_queue.put(artical)
 
 
 
-def handle_raw_html(exit_event,page_queue,database_location):
-    while True:
-        if exit_event.is_set():
-            break
+
+
+
+
+
+
+def handle_raw_html(exit_event: threading.Event ,page_queue: queue.Queue,database_location: str, database_quene: queue.Queue):
+    while not exit_event.is_set():
         try:
             item = page_queue.get_nowait()
             soup = BeautifulSoup(item, "html.parser")
@@ -180,20 +212,14 @@ def handle_raw_html(exit_event,page_queue,database_location):
             li_elements = ol_element.find_all("li", recursive=False)
 
             schema = Article.parse_schema()
-            read_csv_data = pl.read_csv(database_location, dtypes=schema)
 
 
             for li in li_elements:
                 article = Article.parse_article(li)
-                fixed_data = article.to_dataframe()
-                print(read_csv_data.dtypes)
-                print(fixed_data.dtypes)
-                read_csv_data.extend(fixed_data)                
-                
-                print(fixed_data)
-
-            read_csv_data.write_csv(database_location)
+                database_quene.put(article)
 
         except queue.Empty:
             pass
+    print('All Done Html Testing')
+    
 

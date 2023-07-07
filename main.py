@@ -17,27 +17,15 @@ from webdriver_manager.firefox import GeckoDriverManager
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support import expected_conditions as EC
 
+
 database_location = "database.csv"
+die_event = threading.Event()
+raw_html_queue = queue.Queue()
+writing_class_queue = queue.Queue()
 
 
 
-
-
-driver = start_driver()
-
-
-search_params = "evangelical"
-
-# driver.get(f'https://www.nytimes.com/search?dropmab=false&endDate=20230501&query={search_params}&sort=best%2Cnewest&startDate=20220601&types=article')
-
-driver.implicitly_wait(1)
-
-exit_event = threading.Event()
-
-page_queue = queue.Queue()
-
-
-def do_the_scraping():
+def do_the_scraping(die_event: threading.Event, ):
     try:
         for n in generateUrls(search_params)[-5:-1]:
             driver.get(n)
@@ -50,54 +38,64 @@ def do_the_scraping():
                 except NoSuchElementException as e:
                     break
             page_source = driver.page_source
-            page_queue.put(page_source)
+            raw_html_queue.put(page_source)
     except:
         driver.quit()
         exit_event.set()
 
 
-def create_database():
-    csv_file = "database.csv"
-    if not os.path.exists(csv_file):
-        Article = Article("","","","","").parse_article()
-        Article.write_csv(csv_file)
 
+def WritingDataBase(
+    die_event: threading.Event, writing_class_queue: queue.Queue, database_location: str
+):
+    testing_dataframe = pl.DataFrame(schema=Article.parse_schema())
 
-def handle_raw_html():
-    while True:
-        if exit_event.is_set():
-            break
+    while not die_event.is_set():
         try:
-            item = page_queue.get_nowait()
-            soup = BeautifulSoup(item, "html.parser")
-
-            open("file.html", "w+").write(item)
-
-            ol_element = soup.find("ol", {"data-testid": "search-results"})
-            li_elements = ol_element.find_all("li", recursive=False)
-            read_csv_data = pl.read_csv(database_location)
-
-            for li in li_elements:
-                article = Article.parse_article(li)
-                print(article.title)
-                print(article.to_dataframe())
-           
-            data = pl.from_dict({
-
-
-
-            })
-            read_csv_data.write_csv(database_location)
-
+            raw_element: Article = writing_class_queue.get_nowait()
+            data_frame_element = raw_element.to_dataframe()
+            testing_dataframe.extend(data_frame_element)
+            print(testing_dataframe[-1][0])
         except queue.Empty:
             pass
+    print('writiing data')
+    testing_dataframe.write_csv(database_location, separator="|")
+    print("all Done")
 
 
-create_database()
+try:
+    Sending_Raw_Html_Thread = threading.Thread(target=do_the_scraping)
 
 
-producer = threading.Thread(target=do_the_scraping)
-consumer = threading.Thread(target=handle_raw_html)
 
-producer.start()
-consumer.start()
+    Converting_Html_To_Classs = threading.Thread(
+        target=handle_raw_html,
+        args=(die_event, raw_html_queue, database_location, writing_class_queue),
+    )
+
+    Writing_Data_To_File = threading.Thread(
+        target=WritingDataBase,
+        args=(
+            die_event,
+            writing_class_queue,
+            database_location,
+        ),
+    )
+    Sending_Raw_Html_Thread.start()
+    Converting_Html_To_Classs.start()
+    Writing_Data_To_File.start()
+
+    # Wait for KeyboardInterrupt
+    while True:
+        sleep(.1)
+
+except KeyboardInterrupt:
+    # Set the die_event to stop the threads
+    die_event.set()
+
+    # Wait for the threads to finish
+    Sending_Raw_Html_Thread.join()
+    Converting_Html_To_Classs.join()
+    Writing_Data_To_File.join()
+
+    print("Threads stopped.")
