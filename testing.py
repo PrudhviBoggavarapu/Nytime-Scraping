@@ -69,8 +69,15 @@ try:
     # Wait for KeyboardInterrupt
     while True:
         sleep(.1)
-        if not (Sending_Raw_Html_Thread.is_alive and Converting_Html_To_Classs.is_alive and Converting_Links_To_Full_Text_Data.is_alive and Writing_Data_To_File.is_alive):
+
+        
+        if not (Sending_Raw_Html_Thread.is_alive() and Converting_Html_To_Classs.is_alive() and Converting_Links_To_Full_Text_Data.is_alive() and Writing_Data_To_File.is_alive()):
+            print('DIE')
             die_event.set()
+            break
+
+
+
 
 
 
@@ -80,11 +87,10 @@ try:
 except KeyboardInterrupt:
     # Set the die_event to stop the threads
     die_event.set()
-
-    # Wait for the threads to finish
-    Sending_Raw_Html_Thread.join()
-    Converting_Html_To_Classs.join()
-    Converting_Links_To_Full_Text_Data.join()
-    Writing_Data_To_File.join()
-
     print("Threads stopped.")
+
+
+
+
+
+exit()
